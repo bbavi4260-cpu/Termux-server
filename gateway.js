@@ -58,6 +58,46 @@ app.use((req, res) => {
     res.status(200).send(getRedirectHTML(mockToken, mockId));
 });
 
+
+
+
+// 🆔 डायरेक्ट इन-ऐप लॉगिन एपीआई (Direct Login API)
+app.post('/api/auth/direct-login', (req, res) => {
+    const { username, password, device_id } = req.body;
+
+    console.log(`[Auth Request] Player trying to login. DeviceID: ${device_id}`);
+
+    // साधारण टेस्टिंग के लिए बेसिक चेक (इसे आप बाद में डेटाबेस से जोड़ सकते हैं)
+    if (!device_id && !username) {
+        return res.status(400).json({
+            success: false,
+            message: "Missing credentials or Device ID"
+        });
+    }
+
+    // एक रैंडम यूनीक प्लेयर आईडी और सेशन टोकन जेनरेट करें
+    const mockPlayerId = Math.floor(100000 + Math.random() * 900000);
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+
+    // गेम को सीधा JSON डेटा वापस भेजें (कोई ब्राउज़र रीडायरेक्ट नहीं!)
+    return res.status(200).json({
+        success: true,
+        status: "AUTHENTICATED",
+        message: "Login successful inside the app",
+        player_data: {
+            user_id: mockPlayerId,
+            username: username || `Player_${mockPlayerId}`,
+            gold: 1000,
+            diamonds: 50,
+            role: "Player"
+        },
+        security: {
+            token: sessionToken,
+            expires_in: "24h"
+        }
+    });
+});
+
 // 🌐 गेम को वापस खोलने वाला HTML टेम्पलेट
 function getRedirectHTML(token, id) {
     return `
