@@ -1,0 +1,15 @@
+
+{  "name": "nexus-api-gateway",
+  "version": "1.0.0",
+  "description": "RESTful API Gateway for Nexus",
+  "main": "gateway.js",
+  "scripts": {
+    "start": "node gateway.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  }
+}
+
+
