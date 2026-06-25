@@ -5,15 +5,15 @@ const crypto = require('crypto');
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // यूनिटी कभी-कभी Form-Data भेजता है
+app.use(express.urlencoded({ extended: true }));
 
-// 📝 लॉगर: गेम जो भी एंडपॉइंट ढूंढेगा, वह टर्मक्स/रेंडर लॉग्स में दिखाई देगा
+// 📝 Request Logger - गेम की हर चाल पर नज़र रखने के लिए
 app.use((req, res, next) => {
     console.log(`[Unity Request]: ${req.method} ${req.path} | Data:`, req.body || req.query);
     next();
 });
 
-// 🌐 1. यूनिटी रिमोट कॉन्फ़िगरेशन और लैंग्वेज चेक
+// 🌐 1. यूनिटी रिमोट कॉन्फ़िगरेशन और लैंग्वेज चेक (CHECK_AND_ADJUST_LANGUAGE)
 app.all(['/CHECK_AND_ADJUST_LANGUAGE', '*/CHECK_AND_ADJUST_LANGUAGE', '/api/config'], (req, res) => {
     res.status(200).json({
         success: true,
@@ -28,27 +28,59 @@ app.all(['/CHECK_AND_ADJUST_LANGUAGE', '*/CHECK_AND_ADJUST_LANGUAGE', '/api/conf
     });
 });
 
-// 👤 2. यूनिटी फेसबुक लॉगिन सिमुलेटर (Facebook Auth Link)
+// 👤 2. यूनिटी फेसबुक लॉगिन सिमुलेटर (With Auto-Redirect to Game)
 app.all(['*/facebook*', '*/fb_login*', '/api/auth/facebook'], (req, res) => {
     const mockFbId = Math.floor(100000000 + Math.random() * 900000000);
-    res.status(200).json({
-        success: true,
-        status: "AUTHENTICATED",
-        token: crypto.randomBytes(32).toString('hex'),
-        player_info: {
-            user_id: mockFbId,
-            username: `Nexus_Player_${mockFbId}`,
-            avatar: "https://sgma-api.onrender.com/cdn/default_avatar.png",
-            role: "Master_Admin", // एडमिन प्रिविलेज
-            level: 50,
-            gold: 99999,
-            diamonds: 9999
-        },
-        session: {
-            session_key: crypto.randomBytes(16).toString('hex'),
-            expires_at: new Date(Date.now() + 86400000).toISOString()
-        }
-    });
+    const token = crypto.randomBytes(32).toString('hex');
+    
+    // अगर रिक्वेस्ट गेम के अंदर से (API के रूप में) आई है, तो सीधा JSON दें
+    if (req.headers['user-agent'] && !req.headers['user-agent'].includes('Mozilla')) {
+        return res.status(200).json({
+            success: true,
+            status: "AUTHENTICATED",
+            token: token,
+            player_info: { user_id: mockFbId, username: `Guest_${mockFbId}`, role: "Player", gold: 500, diamonds: 10 }
+        });
+    }
+
+    // 🌐 अगर ब्राउज़र में खुला है, तो यह सुंदर पेज गेम को वापस खोलेगा!
+    res.status(200).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Nexus Authentication</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body { background: #121212; color: #fff; font-family: sans-serif; text-align: center; padding-top: 50px; }
+                .loader { border: 4px solid #f3f3f3; border-top: 4px solid #a855f7; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                .btn { background: #a855f7; color: white; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; text-decoration: none; display: inline-block; margin-top: 20px; }
+            </style>
+        </head>
+        <body>
+            <h2>✓ Login Successful</h2>
+            <p>Connecting back to Nexus Sigma...</p>
+            <div class="loader"></div>
+            
+            <script>
+                const token = "${token}";
+                const userId = "${mockFbId}";
+                const gameUri = "sigmax://auth?token=" + token + "&user_id=" + userId;
+                const fallbackUri = "intent://auth?token=" + token + "#Intent;scheme=sigmax;package=com.nexus.sigma;end";
+
+                setTimeout(() => {
+                    window.location.href = gameUri;
+                    setTimeout(() => {
+                        window.location.href = fallbackUri;
+                    }, 500);
+                }, 1500);
+            </script>
+            
+            <p style="font-size: 12px; color: #666;">If game doesn't open automatically, click below:</p>
+            <a class="btn" href="sigmax://auth?token=${token}">Return to Game</a>
+        </body>
+        </html>
+    `);
 });
 
 // 🆔 3. गेस्ट लॉगिन और प्लेयर प्रोफाइल एंडपॉइंट
@@ -101,6 +133,6 @@ app.use((req, res) => {
 // पोर्ट लिसनर
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 Full Unity Server Clone Running on Port ${PORT}`);
+    console.log(`🚀 Master Gateway running on port ${PORT}`);
 });
 
